@@ -1,11 +1,13 @@
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { PageContainer, PageHeader, Button, ProgressBar } from './ui';
 import { MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS } from '@/config/constants';
 import { validateFile, formatFileTypeError, formatFileSizeError } from '@/utils/fileValidation';
 
 export const Upload: React.FC = () => {
-  const { uploadDocument, uploadProgress, showToast } = useApp();
+  const navigate = useNavigate();
+  const { documents, uploadDocument, uploadProgress, showToast } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
@@ -84,11 +86,19 @@ export const Upload: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+  const qaAction =
+    documents.length > 0 ? (
+      <Button variant="primary" onClick={() => navigate('/qa')}>
+        Ask Questions →
+      </Button>
+    ) : null;
+
   return (
     <PageContainer>
       <PageHeader
         title="Upload Documents"
         subtitle={`Upload your documents to start asking questions. Supports PDF, TXT, DOC, DOCX, RTF, ODT, MD, and CSV files (max ${MAX_FILE_SIZE_MB}MB).`}
+        action={qaAction}
       />
 
       <div
