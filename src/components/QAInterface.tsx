@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { PageContainer, PageHeader, EmptyState, Button, QACard } from './ui';
+import { logger } from '@/utils/logger';
 
 const MAX_QUESTION_LENGTH = 500;
 
@@ -46,7 +47,7 @@ export const QAInterface: React.FC = () => {
       setQuestion('');
       textareaRef.current?.focus();
     } catch (error) {
-      console.error('Failed to ask question:', error);
+      logger.error('Failed to ask question:', error);
     } finally {
       setIsAsking(false);
     }

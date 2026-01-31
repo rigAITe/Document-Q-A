@@ -36,8 +36,15 @@ export const Modal: React.FC<ModalProps> = ({
     }
   };
 
+  const modalId = `modal-${title.replace(/\s+/g, '-').toLowerCase()}`;
+  const descriptionId = `${modalId}-description`;
+
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={modalId}
+      aria-describedby={description ? descriptionId : undefined}
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5 animate-fade-in"
       onClick={handleBackdropClick}
     >
@@ -46,12 +53,18 @@ export const Modal: React.FC<ModalProps> = ({
         className="card p-6 max-w-md w-full shadow-2xl animate-slide-up"
       >
         <div className={`text-center ${children ? 'mb-4' : 'mb-5'}`}>
-          {icon && <div className="text-5xl mb-4">{icon}</div>}
-          <h3 className={`text-xl font-semibold text-gray-900 dark:text-gray-100 ${description ? 'mb-2' : ''}`}>
+          {icon && <div className="text-5xl mb-4" aria-hidden="true">{icon}</div>}
+          <h3 
+            id={modalId}
+            className={`text-xl font-semibold text-gray-900 dark:text-gray-100 ${description ? 'mb-2' : ''}`}
+          >
             {title}
           </h3>
           {description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+            <p 
+              id={descriptionId}
+              className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+            >
               {description}
             </p>
           )}

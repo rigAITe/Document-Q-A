@@ -12,16 +12,25 @@ export const Toast: React.FC = () => {
   const { toasts, removeToast } = useApp();
 
   return (
-    <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md">
+    <div 
+      className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md"
+      role="region"
+      aria-label="Notifications"
+    >
       {toasts.map((toast) => {
         const style = toastStyles[toast.type];
+        const isError = toast.type === 'error' || toast.type === 'warning';
         return (
           <div
             key={toast.id}
+            role="alert"
+            aria-live={isError ? 'assertive' : 'polite'}
+            aria-atomic="true"
             className={`bg-white dark:bg-gray-800 border-2 ${style.border} rounded-lg p-4 shadow-lg flex items-center gap-3 min-w-[300px] animate-slide-in-right`}
           >
             <div
               className={`w-6 h-6 rounded-full ${style.bg} text-white flex items-center justify-center font-bold text-sm shrink-0`}
+              aria-hidden="true"
             >
               {style.icon}
             </div>
@@ -31,6 +40,7 @@ export const Toast: React.FC = () => {
             <button
               onClick={() => removeToast(toast.id)}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg p-0 bg-transparent border-none cursor-pointer"
+              aria-label="Dismiss notification"
             >
               ×
             </button>

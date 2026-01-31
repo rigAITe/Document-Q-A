@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useLocalStorage } from '../useLocalStorage';
 
 describe('useLocalStorage', () => {
@@ -14,8 +14,9 @@ describe('useLocalStorage', () => {
   it('should update localStorage when value changes', () => {
     const { result } = renderHook(() => useLocalStorage('test-key', 'initial'));
     
-    const [, setValue] = result.current;
-    setValue('updated');
+    act(() => {
+      result.current[1]('updated');
+    });
 
     expect(localStorage.getItem('test-key')).toBe(JSON.stringify('updated'));
   });
@@ -32,10 +33,23 @@ describe('useLocalStorage', () => {
       useLocalStorage('test-object', { name: 'test', count: 0 })
     );
     
-    const [, setValue] = result.current;
-    setValue({ name: 'updated', count: 5 });
+    act(() => {
+      result.current[1]({ name: 'updated', count: 5 });
+    });
 
     const stored = JSON.parse(localStorage.getItem('test-object') || '{}');
     expect(stored).toEqual({ name: 'updated', count: 5 });
+  });
+
+  it('should revive date strings back to Date objects', () => {
+    const testDate = new Date('2024-01-15T10:30:00.000Z');
+    localStorage.setItem('test-date', JSON.stringify({ createdAt: testDate }));
+    
+    const { result } = renderHook(() => 
+      useLocalStorage('test-date', { createdAt: new Date() })
+    );
+    
+    expect(result.current[0].createdAt).toBeInstanceOf(Date);
+    expect(result.current[0].createdAt.toISOString()).toBe('2024-01-15T10:30:00.000Z');
   });
 });

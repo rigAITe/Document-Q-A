@@ -1,7 +1,15 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from 'react';
 import type { Document, QAPair, Theme, UploadProgress, ToastMessage } from '@/types';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { mockApi } from '@/utils/mockApi';
+
+// Constants
+const DEFAULT_TOAST_DURATION = 5000;
+const ERROR_TOAST_DURATION = 3000;
+const UPLOAD_PROGRESS_CLEAR_DELAY = 1000;
+const UPLOAD_PROGRESS_INTERVAL = 200;
+const UPLOAD_PROGRESS_INCREMENT = 10;
+const UPLOAD_PROGRESS_MAX = 90;
 
 interface AppContextType {
   documents: Document[];
@@ -42,6 +50,54 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  
+  // Refs for cleanup and stable references
+  const uploadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const toastTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (uploadIntervalRef.current) {
+        clearInterval(uploadIntervalRef.current);
+      }
+      toastTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+      toastTimeoutsRef.current.clear();
+    };
+  }, []);
+
+  // ============================================
+  // Toast functions (defined first as they're used by other callbacks)
+  // ============================================
+  
+  const removeToast = useCallback((id: string) => {
+    // Clear the timeout if it exists
+    const existingTimeout = toastTimeoutsRef.current.get(id);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      toastTimeoutsRef.current.delete(id);
+    }
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
+  const showToast = useCallback((type: ToastMessage['type'], message: string, duration = DEFAULT_TOAST_DURATION) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    const toast: ToastMessage = { id, type, message, duration };
+    
+    setToasts(prev => [...prev, toast]);
+
+    if (duration > 0) {
+      const timeoutId = setTimeout(() => {
+        toastTimeoutsRef.current.delete(id);
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, duration);
+      toastTimeoutsRef.current.set(id, timeoutId);
+    }
+  }, []);
+
+  // ============================================
+  // Document functions
+  // ============================================
 
   const addDocument = useCallback((document: Document) => {
     setDocuments(prev => [...prev, document]);
@@ -60,11 +116,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       showToast('error', error instanceof Error ? error.message : 'Failed to delete document');
       throw error;
     }
-  }, [setDocuments, setQAHistory, selectedDocumentId]);
+  }, [setDocuments, setQAHistory, selectedDocumentId, showToast]);
 
   const selectDocument = useCallback((documentId: string | null) => {
     setSelectedDocumentId(documentId);
   }, []);
+
+  // ============================================
+  // Q&A functions
+  // ============================================
 
   const addQAPair = useCallback((qaPair: QAPair) => {
     setQAHistory(prev => [qaPair, ...prev]);
@@ -78,78 +138,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       showToast('error', error instanceof Error ? error.message : 'Failed to get answer');
       throw error;
     }
-  }, [addQAPair]);
+  }, [addQAPair, showToast]);
 
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  }, [setTheme]);
-
-  const uploadDocument = useCallback(async (file: File) => {
-    const tempId = `temp-${Date.now()}`;
+  const searchQAHistory = useCallback((query: string): QAPair[] => {
+    if (!query.trim()) return qaHistory;
     
-    setUploadProgress(prev => [...prev, {
-      documentId: tempId,
-      progress: 0,
-      status: 'uploading',
-    }]);
-
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => prev.map(up => 
-        up.documentId === tempId && up.progress < 90
-          ? { ...up, progress: up.progress + 10 }
-          : up
-      ));
-    }, 200);
-
-    try {
-      const document = await mockApi.uploadDocument(file);
-      
-      clearInterval(progressInterval);
-      setUploadProgress(prev => prev.map(up => 
-        up.documentId === tempId
-          ? { ...up, progress: 100, status: 'completed' }
-          : up
-      ));
-
-      setTimeout(() => {
-        setUploadProgress(prev => prev.filter(up => up.documentId !== tempId));
-      }, 1000);
-
-      addDocument(document);
-      showToast('success', `${file.name} uploaded successfully`);
-    } catch (error) {
-      clearInterval(progressInterval);
-      setUploadProgress(prev => prev.map(up => 
-        up.documentId === tempId
-          ? { ...up, status: 'error', error: error instanceof Error ? error.message : 'Upload failed' }
-          : up
-      ));
-
-      setTimeout(() => {
-        setUploadProgress(prev => prev.filter(up => up.documentId !== tempId));
-      }, 3000);
-
-      showToast('error', error instanceof Error ? error.message : 'Upload failed');
-      throw error;
-    }
-  }, [addDocument]);
-
-  const showToast = useCallback((type: ToastMessage['type'], message: string, duration = 5000) => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    const toast: ToastMessage = { id, type, message, duration };
-    
-    setToasts(prev => [...prev, toast]);
-
-    if (duration > 0) {
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
-    }
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
+    const lowerQuery = query.toLowerCase();
+    return qaHistory.filter(qa => 
+      qa.question.toLowerCase().includes(lowerQuery) ||
+      qa.answer.toLowerCase().includes(lowerQuery)
+    );
+  }, [qaHistory]);
 
   const exportQAHistory = useCallback(() => {
     const dataStr = JSON.stringify(qaHistory, null, 2);
@@ -163,15 +162,80 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     showToast('success', 'Q&A history exported successfully');
   }, [qaHistory, showToast]);
 
-  const searchQAHistory = useCallback((query: string): QAPair[] => {
-    if (!query.trim()) return qaHistory;
+  // ============================================
+  // Theme functions
+  // ============================================
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  }, [setTheme]);
+
+  // ============================================
+  // Upload functions
+  // ============================================
+
+  const uploadDocument = useCallback(async (file: File) => {
+    const tempId = `temp-${Date.now()}`;
     
-    const lowerQuery = query.toLowerCase();
-    return qaHistory.filter(qa => 
-      qa.question.toLowerCase().includes(lowerQuery) ||
-      qa.answer.toLowerCase().includes(lowerQuery)
-    );
-  }, [qaHistory]);
+    setUploadProgress(prev => [...prev, {
+      documentId: tempId,
+      progress: 0,
+      status: 'uploading',
+    }]);
+
+    // Store interval in ref for cleanup
+    uploadIntervalRef.current = setInterval(() => {
+      setUploadProgress(prev => prev.map(up => 
+        up.documentId === tempId && up.progress < UPLOAD_PROGRESS_MAX
+          ? { ...up, progress: up.progress + UPLOAD_PROGRESS_INCREMENT }
+          : up
+      ));
+    }, UPLOAD_PROGRESS_INTERVAL);
+
+    try {
+      const document = await mockApi.uploadDocument(file);
+      
+      if (uploadIntervalRef.current) {
+        clearInterval(uploadIntervalRef.current);
+        uploadIntervalRef.current = null;
+      }
+      
+      setUploadProgress(prev => prev.map(up => 
+        up.documentId === tempId
+          ? { ...up, progress: 100, status: 'completed' }
+          : up
+      ));
+
+      setTimeout(() => {
+        setUploadProgress(prev => prev.filter(up => up.documentId !== tempId));
+      }, UPLOAD_PROGRESS_CLEAR_DELAY);
+
+      addDocument(document);
+      showToast('success', `${file.name} uploaded successfully`);
+    } catch (error) {
+      if (uploadIntervalRef.current) {
+        clearInterval(uploadIntervalRef.current);
+        uploadIntervalRef.current = null;
+      }
+      
+      setUploadProgress(prev => prev.map(up => 
+        up.documentId === tempId
+          ? { ...up, status: 'error', error: error instanceof Error ? error.message : 'Upload failed' }
+          : up
+      ));
+
+      setTimeout(() => {
+        setUploadProgress(prev => prev.filter(up => up.documentId !== tempId));
+      }, ERROR_TOAST_DURATION);
+
+      showToast('error', error instanceof Error ? error.message : 'Upload failed');
+      throw error;
+    }
+  }, [addDocument, showToast]);
+
+  // ============================================
+  // Context value
+  // ============================================
 
   const value: AppContextType = {
     documents,

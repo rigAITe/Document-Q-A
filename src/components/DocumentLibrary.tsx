@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer, PageHeader, Card, EmptyState, Modal, Button } from './ui';
+import { logger } from '@/utils/logger';
 import type { Document } from '@/types';
 
 export const DocumentLibrary: React.FC = () => {
@@ -40,7 +41,7 @@ export const DocumentLibrary: React.FC = () => {
       await removeDocument(documentToDelete.id);
       setDocumentToDelete(null);
     } catch (error) {
-      console.error('Failed to delete document:', error);
+      logger.error('Failed to delete document:', error);
     } finally {
       setDeletingId(null);
     }

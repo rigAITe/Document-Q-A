@@ -108,13 +108,24 @@ export const Upload: React.FC = () => {
       />
 
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Drop zone for file upload. Click or drag files here."
+        aria-describedby="upload-instructions"
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={handleButtonClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleButtonClick();
+          }
+        }}
         className={`
           border-2 border-dashed rounded-xl p-16 text-center cursor-pointer transition-all duration-300
+          focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
           ${isDragging 
             ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
             : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-900/10'
@@ -147,8 +158,13 @@ export const Upload: React.FC = () => {
           multiple
           accept={ALLOWED_EXTENSIONS.join(',')}
           onChange={handleFileInput}
-          className="hidden"
+          className="sr-only"
+          aria-label="File upload input"
         />
+        <span id="upload-instructions" className="sr-only">
+          Supported file types: PDF, TXT, DOC, DOCX, RTF, ODT, MD, CSV. 
+          You can drag and drop files or click to browse.
+        </span>
       </div>
 
       {uploadProgress.length > 0 && (

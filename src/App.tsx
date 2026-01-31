@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -23,38 +23,51 @@ const AppContent: React.FC = () => {
     }
   }, [theme]);
 
-  // Global keyboard shortcuts
-  useKeyboardShortcuts([
+  // Callbacks for keyboard shortcuts (memoized to prevent recreation)
+  const handleUploadShortcut = useCallback(() => {
+    navigate('/');
+  }, [navigate]);
+
+  const handleSearchShortcut = useCallback(() => {
+    const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.focus();
+    } else {
+      navigate('/history');
+    }
+  }, [navigate]);
+
+  const handleEscapeShortcut = useCallback(() => {
+    // Only clear the currently focused input, not all inputs
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+      activeElement.value = '';
+      activeElement.dispatchEvent(new Event('input', { bubbles: true }));
+      activeElement.blur();
+    }
+  }, []);
+
+  // Memoize keyboard shortcuts to prevent effect re-runs
+  const shortcuts = useMemo(() => [
     {
       key: 'u',
       metaKey: true,
       ctrlKey: true,
-      callback: () => navigate('/'),
+      callback: handleUploadShortcut,
     },
     {
       key: 'f',
       metaKey: true,
       ctrlKey: true,
-      callback: () => {
-        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
-        if (searchInput) {
-          searchInput.focus();
-        } else {
-          navigate('/history');
-        }
-      },
+      callback: handleSearchShortcut,
     },
     {
       key: 'Escape',
-      callback: () => {
-        const inputs = document.querySelectorAll('input, textarea') as NodeListOf<HTMLInputElement | HTMLTextAreaElement>;
-        inputs.forEach(input => {
-          input.value = '';
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-      },
+      callback: handleEscapeShortcut,
     },
-  ]);
+  ], [handleUploadShortcut, handleSearchShortcut, handleEscapeShortcut]);
+
+  useKeyboardShortcuts(shortcuts);
 
   return (
     <div className="flex h-screen overflow-hidden">
