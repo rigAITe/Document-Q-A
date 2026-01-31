@@ -48,12 +48,14 @@ export const DocumentLibrary: React.FC = () => {
       ? 'No documents uploaded yet. Start by uploading some documents.'
       : `You have ${documents.length} document${documents.length !== 1 ? 's' : ''} in your library.`;
 
-  const qaAction =
-    documents.length > 0 ? (
-      <Button variant="primary" onClick={() => navigate('/qa')}>
-        Ask Questions →
-      </Button>
-    ) : null;
+  const qaAction = (
+    <Button
+      variant={documents.length > 0 ? 'primary' : 'secondary'}
+      onClick={() => navigate('/qa')}
+    >
+      Ask Questions →
+    </Button>
+  );
 
   return (
     <PageContainer>

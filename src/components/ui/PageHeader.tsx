@@ -17,7 +17,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, action 
           <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">{subtitle}</p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action != null && <div className="shrink-0 flex items-center">{action}</div>}
     </div>
   );
 };

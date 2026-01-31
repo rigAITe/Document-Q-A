@@ -86,12 +86,14 @@ export const Upload: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const qaAction =
-    documents.length > 0 ? (
-      <Button variant="primary" onClick={() => navigate('/qa')}>
-        Ask Questions →
-      </Button>
-    ) : null;
+  const qaAction = (
+    <Button
+      variant={documents.length > 0 ? 'primary' : 'secondary'}
+      onClick={() => navigate('/qa')}
+    >
+      Ask Questions →
+    </Button>
+  );
 
   return (
     <PageContainer>
