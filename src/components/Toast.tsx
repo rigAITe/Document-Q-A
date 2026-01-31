@@ -13,7 +13,7 @@ export const Toast: React.FC = () => {
 
   return (
     <div 
-      className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md"
+      className="fixed top-16 lg:top-5 right-2 sm:right-5 left-2 sm:left-auto z-50 flex flex-col gap-2 sm:gap-3 sm:max-w-md"
       role="region"
       aria-label="Notifications"
     >
@@ -26,7 +26,7 @@ export const Toast: React.FC = () => {
             role="alert"
             aria-live={isError ? 'assertive' : 'polite'}
             aria-atomic="true"
-            className={`bg-white dark:bg-gray-800 border-2 ${style.border} rounded-lg p-4 shadow-lg flex items-center gap-3 min-w-[300px] animate-slide-in-right`}
+            className={`bg-white dark:bg-gray-800 border-2 ${style.border} rounded-lg p-3 sm:p-4 shadow-lg flex items-center gap-3 sm:min-w-[300px] animate-slide-in-right`}
           >
             <div
               className={`w-6 h-6 rounded-full ${style.bg} text-white flex items-center justify-center font-bold text-sm shrink-0`}

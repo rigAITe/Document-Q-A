@@ -4,29 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { PageContainer, PageHeader, Card, EmptyState, Modal, Button } from './ui';
 import { logger } from '@/utils/logger';
 import type { Document } from '@/types';
+import { formatFileSize, formatDate } from '@/utils/formatters';
 
 export const DocumentLibrary: React.FC = () => {
   const { documents, removeDocument, selectDocument } = useApp();
   const navigate = useNavigate();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const formatDate = (date: Date): string => {
-    const d = new Date(date);
-    return d.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const handleDeleteClick = (doc: Document, e: React.MouseEvent): void => {
     e.stopPropagation();
@@ -77,7 +61,7 @@ export const DocumentLibrary: React.FC = () => {
           size="lg"
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {documents.map((doc) => (
             <Card
               key={doc.id}

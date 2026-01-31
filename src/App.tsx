@@ -1,18 +1,21 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Sidebar } from '@/components/Sidebar';
+import { Sidebar, MobileHeader } from '@/components/Sidebar';
 import { Toast } from '@/components/Toast';
 import { Upload } from '@/components/Upload';
 import { DocumentLibrary } from '@/components/DocumentLibrary';
 import { QAInterface } from '@/components/QAInterface';
 import { History } from '@/components/History';
+import { Settings } from '@/components/Settings';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 const AppContent: React.FC = () => {
   const { theme } = useApp();
   const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -22,6 +25,22 @@ const AppContent: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSidebarOpen]);
+
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
 
   // Callbacks for keyboard shortcuts (memoized to prevent recreation)
   const handleUploadShortcut = useCallback(() => {
@@ -38,6 +57,11 @@ const AppContent: React.FC = () => {
   }, [navigate]);
 
   const handleEscapeShortcut = useCallback(() => {
+    // Close mobile menu if open
+    if (isSidebarOpen) {
+      setIsSidebarOpen(false);
+      return;
+    }
     // Only clear the currently focused input, not all inputs
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
@@ -45,7 +69,7 @@ const AppContent: React.FC = () => {
       activeElement.dispatchEvent(new Event('input', { bubbles: true }));
       activeElement.blur();
     }
-  }, []);
+  }, [isSidebarOpen]);
 
   // Memoize keyboard shortcuts to prevent effect re-runs
   const shortcuts = useMemo(() => [
@@ -70,9 +94,19 @@ const AppContent: React.FC = () => {
   useKeyboardShortcuts(shortcuts);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
+    <div className="flex h-[100dvh] overflow-hidden">
+      {/* Mobile header */}
+      <MobileHeader onMenuClick={() => setIsSidebarOpen(true)} />
+      
+      {/* Sidebar - hidden on mobile, shown via hamburger */}
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onClose={closeSidebar} 
+        onSettingsClick={() => setIsSettingsOpen(true)}
+      />
+      
+      {/* Main content - adjusted for mobile header */}
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
         <Routes>
           <Route path="/" element={<Upload />} />
           <Route path="/documents" element={<DocumentLibrary />} />
@@ -80,6 +114,9 @@ const AppContent: React.FC = () => {
           <Route path="/history" element={<History />} />
         </Routes>
       </main>
+      
+      {/* Modals */}
+      <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <Toast />
     </div>
   );

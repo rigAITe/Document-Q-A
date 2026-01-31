@@ -27,8 +27,9 @@ export const History: React.FC = () => {
     if (qaHistory.length === 0) return null;
 
     return (
-      <Button variant="secondary" icon="📥" onClick={exportQAHistory}>
-        Export History
+      <Button variant="secondary" icon="📥" onClick={exportQAHistory} className="text-sm">
+        <span className="hidden sm:inline">Export History</span>
+        <span className="sm:hidden">Export</span>
       </Button>
     );
   };
@@ -57,7 +58,7 @@ export const History: React.FC = () => {
     }
 
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:gap-5">
         {filteredHistory.map((qa) => (
           <QACard
             key={qa.id}

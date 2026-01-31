@@ -2,14 +2,16 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import type { Document, QAPair, Theme, UploadProgress, ToastMessage } from '@/types';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { mockApi } from '@/utils/mockApi';
-
-// Constants
-const DEFAULT_TOAST_DURATION = 5000;
-const ERROR_TOAST_DURATION = 3000;
-const UPLOAD_PROGRESS_CLEAR_DELAY = 1000;
-const UPLOAD_PROGRESS_INTERVAL = 200;
-const UPLOAD_PROGRESS_INCREMENT = 10;
-const UPLOAD_PROGRESS_MAX = 90;
+import { askOpenAI } from '@/utils/openaiApi';
+import { extractTextFromFile } from '@/utils/documentExtractor';
+import {
+  DEFAULT_TOAST_DURATION,
+  ERROR_TOAST_DURATION,
+  UPLOAD_PROGRESS_CLEAR_DELAY,
+  UPLOAD_PROGRESS_INCREMENT,
+  UPLOAD_PROGRESS_INTERVAL,
+  UPLOAD_PROGRESS_MAX,
+} from '@/config/constants';
 
 interface AppContextType {
   documents: Document[];
@@ -18,6 +20,8 @@ interface AppContextType {
   selectedDocumentId: string | null;
   uploadProgress: UploadProgress[];
   toasts: ToastMessage[];
+  apiKey: string | null;
+  isUsingRealApi: boolean;
   
   addDocument: (document: Document) => void;
   removeDocument: (documentId: string) => Promise<void>;
@@ -33,6 +37,8 @@ interface AppContextType {
   showToast: (type: ToastMessage['type'], message: string, duration?: number) => void;
   removeToast: (id: string) => void;
   
+  setApiKey: (key: string | null) => void;
+  
   exportQAHistory: () => void;
   searchQAHistory: (query: string) => QAPair[];
 }
@@ -47,9 +53,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [documents, setDocuments] = useLocalStorage<Document[]>('documents', []);
   const [qaHistory, setQAHistory] = useLocalStorage<QAPair[]>('qaHistory', []);
   const [theme, setTheme] = useLocalStorage<Theme>('theme', 'light');
+  const [apiKey, setApiKeyStorage] = useLocalStorage<string | null>('openai_api_key', null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  
+  const isUsingRealApi = Boolean(apiKey);
   
   // Refs for cleanup and stable references
   const uploadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,9 +75,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // ============================================
   // Toast functions (defined first as they're used by other callbacks)
-  // ============================================
   
   const removeToast = useCallback((id: string) => {
     // Clear the timeout if it exists
@@ -122,9 +129,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setSelectedDocumentId(documentId);
   }, []);
 
-  // ============================================
   // Q&A functions
-  // ============================================
 
   const addQAPair = useCallback((qaPair: QAPair) => {
     setQAHistory(prev => [qaPair, ...prev]);
@@ -132,13 +137,35 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const askQuestion = useCallback(async (documentId: string, question: string) => {
     try {
-      const qaPair = await mockApi.askQuestion(documentId, question);
+      let qaPair: QAPair;
+      
+      if (!apiKey) {
+        throw new Error('OpenAI API key is required to ask questions.');
+      }
+
+      // Use real OpenAI API
+      const document = documents.find(d => d.id === documentId);
+      if (!document) {
+        throw new Error('Document not found');
+      }
+      const trimmedContent = document.content.trim();
+      if (!trimmedContent) {
+        throw new Error(
+          'No extractable text found in this document. Try a TXT/MD/CSV file or convert to DOCX/PDF with selectable text.'
+        );
+      }
+      qaPair = await askOpenAI(apiKey, trimmedContent, document.name, question, documentId);
+      
       addQAPair(qaPair);
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Failed to get answer');
       throw error;
     }
-  }, [addQAPair, showToast]);
+  }, [addQAPair, showToast, apiKey, documents]);
+  
+  const setApiKey = useCallback((key: string | null) => {
+    setApiKeyStorage(key);
+  }, [setApiKeyStorage]);
 
   const searchQAHistory = useCallback((query: string): QAPair[] => {
     if (!query.trim()) return qaHistory;
@@ -162,17 +189,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     showToast('success', 'Q&A history exported successfully');
   }, [qaHistory, showToast]);
 
-  // ============================================
   // Theme functions
-  // ============================================
 
   const toggleTheme = useCallback(() => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   }, [setTheme]);
 
-  // ============================================
   // Upload functions
-  // ============================================
 
   const uploadDocument = useCallback(async (file: File) => {
     const tempId = `temp-${Date.now()}`;
@@ -193,7 +216,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }, UPLOAD_PROGRESS_INTERVAL);
 
     try {
-      const document = await mockApi.uploadDocument(file);
+      const extractedText = await extractTextFromFile(file);
+      if (!extractedText) {
+        throw new Error(
+          'No extractable text found in this document. Try a TXT/MD/CSV file or convert to DOCX/PDF with selectable text.'
+        );
+      }
+
+      const document = await mockApi.uploadDocument(file, extractedText);
       
       if (uploadIntervalRef.current) {
         clearInterval(uploadIntervalRef.current);
@@ -233,9 +263,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   }, [addDocument, showToast]);
 
-  // ============================================
   // Context value
-  // ============================================
 
   const value: AppContextType = {
     documents,
@@ -244,6 +272,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     selectedDocumentId,
     uploadProgress,
     toasts,
+    apiKey,
+    isUsingRealApi,
     addDocument,
     removeDocument,
     selectDocument,
@@ -253,6 +283,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     uploadDocument,
     showToast,
     removeToast,
+    setApiKey,
     exportQAHistory,
     searchQAHistory,
   };

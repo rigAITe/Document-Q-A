@@ -1,28 +1,8 @@
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
 import { PageContainer, PageHeader, Button, ProgressBar } from './ui';
-
-const ALLOWED_MIME_TYPES = [
-  'text/plain',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/rtf',
-  'text/rtf',
-  'application/vnd.oasis.opendocument.text',
-  'text/markdown',
-  'text/csv',
-];
-
-const ALLOWED_EXTENSIONS = ['.txt', '.pdf', '.doc', '.docx', '.rtf', '.odt', '.md', '.csv'];
-
-const isValidDocumentFile = (file: File): boolean => {
-  if (ALLOWED_MIME_TYPES.includes(file.type)) {
-    return true;
-  }
-  const fileName = file.name.toLowerCase();
-  return ALLOWED_EXTENSIONS.some((ext) => fileName.endsWith(ext));
-};
+import { MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS } from '@/config/constants';
+import { validateFile, formatFileTypeError, formatFileSizeError } from '@/utils/fileValidation';
 
 export const Upload: React.FC = () => {
   const { uploadDocument, uploadProgress, showToast } = useApp();
@@ -55,27 +35,31 @@ export const Upload: React.FC = () => {
 
   const processFiles = (files: File[]): void => {
     const validFiles: File[] = [];
-    const invalidFiles: string[] = [];
+    const invalidTypeFiles: string[] = [];
+    const tooLargeFiles: { name: string; size: number }[] = [];
 
     files.forEach((file) => {
-      if (isValidDocumentFile(file)) {
+      const validation = validateFile(file);
+      if (validation.isValid) {
         validFiles.push(file);
-      } else {
-        invalidFiles.push(file.name);
+      } else if (validation.error === 'invalid_type') {
+        invalidTypeFiles.push(file.name);
+      } else if (validation.error === 'too_large') {
+        tooLargeFiles.push({ name: file.name, size: file.size });
       }
     });
 
+    // Upload valid files
     validFiles.forEach((file) => uploadDocument(file));
 
-    if (invalidFiles.length > 0) {
-      const fileNames =
-        invalidFiles.length > 2
-          ? `${invalidFiles.slice(0, 2).join(', ')} and ${invalidFiles.length - 2} more`
-          : invalidFiles.join(', ');
-      showToast(
-        'error',
-        `Invalid file type: ${fileNames}. Only documents (PDF, TXT, DOC, DOCX, RTF, ODT, MD, CSV) are allowed.`
-      );
+    // Show error for invalid file types
+    if (invalidTypeFiles.length > 0) {
+      showToast('error', formatFileTypeError(invalidTypeFiles));
+    }
+
+    // Show error for files that are too large
+    if (tooLargeFiles.length > 0) {
+      showToast('error', formatFileSizeError(tooLargeFiles));
     }
   };
 
@@ -104,7 +88,7 @@ export const Upload: React.FC = () => {
     <PageContainer>
       <PageHeader
         title="Upload Documents"
-        subtitle="Upload your documents to start asking questions. Supports PDF, TXT, DOC, DOCX, RTF, ODT, MD, and CSV files."
+        subtitle={`Upload your documents to start asking questions. Supports PDF, TXT, DOC, DOCX, RTF, ODT, MD, and CSV files (max ${MAX_FILE_SIZE_MB}MB).`}
       />
 
       <div
@@ -124,7 +108,7 @@ export const Upload: React.FC = () => {
           }
         }}
         className={`
-          border-2 border-dashed rounded-xl p-16 text-center cursor-pointer transition-all duration-300
+          border-2 border-dashed rounded-xl p-8 sm:p-12 lg:p-16 text-center cursor-pointer transition-all duration-300
           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
           ${isDragging 
             ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
@@ -132,14 +116,14 @@ export const Upload: React.FC = () => {
           }
         `}
       >
-        <div className="text-6xl mb-5 pointer-events-none">
+        <div className="text-5xl sm:text-6xl mb-4 sm:mb-5 pointer-events-none">
           {isDragging ? '📥' : '📄'}
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3 pointer-events-none">
+        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3 pointer-events-none">
           {isDragging ? 'Drop files here' : 'Drag & drop files here'}
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 pointer-events-none">
-          or click to browse
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 sm:mb-5 pointer-events-none">
+          or tap to browse
         </p>
         <Button
           variant="primary"
@@ -163,6 +147,7 @@ export const Upload: React.FC = () => {
         />
         <span id="upload-instructions" className="sr-only">
           Supported file types: PDF, TXT, DOC, DOCX, RTF, ODT, MD, CSV. 
+          Maximum file size: {MAX_FILE_SIZE_MB}MB.
           You can drag and drop files or click to browse.
         </span>
       </div>

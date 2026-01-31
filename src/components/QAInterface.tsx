@@ -1,19 +1,24 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
-import { PageContainer, PageHeader, EmptyState, Button, QACard } from './ui';
+import { PageContainer, PageHeader, EmptyState } from './ui';
+import { DocumentSelector, ChatMessageList, QuestionInputForm } from './qa';
+import { useClickOutside } from '@/hooks/useClickOutside';
+import { MAX_QUESTION_LENGTH } from '@/config/constants';
 import { logger } from '@/utils/logger';
 
-const MAX_QUESTION_LENGTH = 500;
-
 export const QAInterface: React.FC = () => {
-  const { documents, selectedDocumentId, selectDocument, askQuestion, qaHistory, showToast } =
+  const { documents, selectedDocumentId, selectDocument, askQuestion, qaHistory, showToast, isUsingRealApi } =
     useApp();
   const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
+  const docMenuRef = useRef<HTMLDivElement>(null);
 
   const selectedDocument = documents.find((doc) => doc.id === selectedDocumentId);
   const documentQA = qaHistory.filter((qa) => qa.documentId === selectedDocumentId);
+  const orderedQA = useMemo(() => [...documentQA].reverse(), [documentQA]);
 
   useEffect(() => {
     if (!selectedDocumentId && documents.length > 0) {
@@ -21,8 +26,13 @@ export const QAInterface: React.FC = () => {
     }
   }, [selectedDocumentId, documents, selectDocument]);
 
-  const handleQuestionChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
-    const value = e.target.value;
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [orderedQA.length, isAsking]);
+
+  useClickOutside(docMenuRef, () => setIsDocMenuOpen(false), isDocMenuOpen);
+
+  const handleQuestionValueChange = (value: string): void => {
     if (value.length <= MAX_QUESTION_LENGTH) {
       setQuestion(value);
     }
@@ -30,6 +40,11 @@ export const QAInterface: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+
+    if (!isUsingRealApi) {
+      showToast('warning', 'OpenAI API key required. Please add your key in API Settings.');
+      return;
+    }
 
     if (!question.trim()) {
       showToast('warning', 'Please enter a question');
@@ -70,19 +85,21 @@ export const QAInterface: React.FC = () => {
   const renderDocumentSelect = (): React.ReactNode => {
     if (documents.length === 0) return null;
 
+    const selectedName = selectedDocument?.name || 'Select a document';
+
     return (
-      <select
-        value={selectedDocumentId || ''}
-        onChange={(e) => selectDocument(e.target.value || null)}
-        className="input cursor-pointer"
-      >
-        <option value="">Select a document...</option>
-        {documents.map((doc) => (
-          <option key={doc.id} value={doc.id}>
-            {doc.name}
-          </option>
-        ))}
-      </select>
+      <DocumentSelector
+        documents={documents}
+        selectedDocumentId={selectedDocumentId}
+        selectedName={selectedName}
+        isOpen={isDocMenuOpen}
+        onToggle={() => setIsDocMenuOpen(prev => !prev)}
+        onSelect={(id) => {
+          selectDocument(id);
+          setIsDocMenuOpen(false);
+        }}
+        menuRef={docMenuRef}
+      />
     );
   };
 
@@ -110,74 +127,76 @@ export const QAInterface: React.FC = () => {
     }
 
     return (
-      <>
-        <form onSubmit={handleSubmit} className="mb-8">
-          <div className="card p-4">
-            <textarea
-              ref={textareaRef}
-              value={question}
-              onChange={handleQuestionChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask a question about the document..."
-              disabled={isAsking}
-              className="w-full min-h-[100px] p-0 border-none outline-none bg-transparent text-gray-900 dark:text-gray-100 text-base resize-y font-sans"
-            />
-            <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-              <span className={`text-sm font-medium ${characterCountClass}`}>
-                {characterCount} / {MAX_QUESTION_LENGTH}
-              </span>
-              <div className="flex gap-3 items-center">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  ⌘/Ctrl + Enter to submit
-                </span>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={!question.trim() || isAsking}
-                  isLoading={isAsking}
-                  icon={isAsking ? undefined : '💬'}
-                >
-                  {isAsking ? 'Asking...' : 'Ask Question'}
-                </Button>
-              </div>
-            </div>
+      <div className="flex flex-col h-full min-h-0">
+        <div className="flex items-center justify-between mb-4">
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {selectedDocument?.name}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {isUsingRealApi ? 'AI mode: OpenAI' : 'AI mode: Disabled'}
+            </p>
           </div>
-        </form>
+          <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
+            ⌘/Ctrl + Enter to send
+          </div>
+        </div>
 
-        <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-5">
-            Q&A History for "{selectedDocument?.name}"
-          </h3>
+        {!isUsingRealApi && (
+          <div className="mb-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+            OpenAI API key required. Add your key in <strong>API Settings</strong> to enable chat.
+          </div>
+        )}
 
-          {documentQA.length === 0 ? (
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 px-3 sm:px-4 py-4 pb-28">
+          {orderedQA.length === 0 ? (
             <EmptyState
-              icon="💭"
-              title="No questions asked yet"
-              description="Start by asking a question above."
+              icon="💬"
+              title="Start the conversation"
+              description="Ask your first question about the document."
               size="sm"
             />
           ) : (
-            <div className="flex flex-col gap-5">
-              {documentQA.map((qa) => (
-                <QACard key={qa.id} qa={qa} />
-              ))}
-            </div>
+            <>
+              <ChatMessageList messages={orderedQA} />
+              <div ref={messagesEndRef} />
+            </>
           )}
         </div>
-      </>
+
+        <QuestionInputForm
+          value={question}
+          isAsking={isAsking}
+          isUsingRealApi={isUsingRealApi}
+          characterCount={characterCount}
+          characterCountClass={characterCountClass}
+          textareaRef={textareaRef}
+          onChange={handleQuestionValueChange}
+          onKeyDown={handleKeyDown}
+          onSubmit={handleSubmit}
+        />
+      </div>
     );
   };
 
   return (
-    <PageContainer>
-      <div className="mb-8">
-        <PageHeader
-          title="Ask Questions"
-          subtitle="Select a document and ask questions about its content"
-        />
-        {renderDocumentSelect()}
+    <PageContainer className="pt-2 sm:pt-4 lg:pt-10">
+      <div className="flex flex-col min-h-[calc(100dvh-140px)] pb-28">
+        <div className="hidden lg:block mb-6">
+          <PageHeader
+            title="Ask Questions"
+            subtitle="Select a document and ask questions about its content"
+          />
+        </div>
+
+        <div className="mb-6">
+          {renderDocumentSelect()}
+        </div>
+
+        <div className="flex-1 min-h-0">
+          {renderContent()}
+        </div>
       </div>
-      {renderContent()}
     </PageContainer>
   );
 };
