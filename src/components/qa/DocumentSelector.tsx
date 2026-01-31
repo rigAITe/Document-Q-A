@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Document } from '@/types';
+import { sanitizeDisplayString } from '@/utils/sanitize';
 
 interface DocumentSelectorProps {
   documents: Document[];
@@ -29,7 +30,7 @@ export const DocumentSelector: React.FC<DocumentSelectorProps> = ({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span className="truncate text-gray-900 dark:text-gray-100">{selectedName}</span>
+        <span className="truncate text-gray-900 dark:text-gray-100">{sanitizeDisplayString(selectedName)}</span>
         <span className="text-gray-500">▾</span>
       </button>
 
@@ -51,7 +52,7 @@ export const DocumentSelector: React.FC<DocumentSelectorProps> = ({
                   : 'text-gray-700 dark:text-gray-200'
               }`}
             >
-              <span className="truncate">{doc.name}</span>
+              <span className="truncate">{sanitizeDisplayString(doc.name)}</span>
             </button>
           ))}
         </div>

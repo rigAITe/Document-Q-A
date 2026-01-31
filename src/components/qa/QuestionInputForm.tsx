@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from '@/components/ui';
 import { MAX_QUESTION_LENGTH } from '@/config/constants';
 
 interface QuestionInputFormProps {

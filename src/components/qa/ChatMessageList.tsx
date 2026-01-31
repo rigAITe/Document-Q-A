@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import type { QAPair } from '@/types';
 
 interface ChatMessageListProps {
@@ -22,7 +23,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({ messages }) =>
           <div className="flex justify-start">
             <div className="max-w-[85%] sm:max-w-[70%] bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl px-3 sm:px-4 py-3 border border-gray-200 dark:border-gray-700">
               <div className="markdown text-sm leading-relaxed">
-                <ReactMarkdown>{qa.answer}</ReactMarkdown>
+                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{qa.answer}</ReactMarkdown>
               </div>
               <div className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
                 AI · {new Date(qa.timestamp).toLocaleTimeString()}

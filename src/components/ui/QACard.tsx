@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
+import { sanitizeDisplayString } from '@/utils/sanitize';
 import type { QAPair } from '@/types';
 
 interface QACardProps {
@@ -18,7 +20,7 @@ export const QACard: React.FC<QACardProps> = ({
       {showDocumentTag && documentName && (
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
           <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-xs font-semibold text-primary-600 dark:text-primary-400 truncate max-w-full sm:max-w-[60%]">
-            📄 {documentName}
+            📄 {documentName ? sanitizeDisplayString(documentName) : ''}
           </span>
           <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
             {new Date(qa.timestamp).toLocaleString()}
@@ -54,7 +56,7 @@ export const QACard: React.FC<QACardProps> = ({
         </div>
         <div className={`text-sm text-gray-900 dark:text-gray-100 leading-relaxed p-3 sm:p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 ${showDocumentTag ? 'sm:ml-7' : ''}`}>
           <div className="markdown">
-            <ReactMarkdown>{qa.answer}</ReactMarkdown>
+            <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{qa.answer}</ReactMarkdown>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer, PageHeader, Card, EmptyState, Modal, Button } from './ui';
+import { sanitizeDisplayString } from '@/utils/sanitize';
 import { logger } from '@/utils/logger';
 import type { Document } from '@/types';
 import { formatFileSize, formatDate } from '@/utils/formatters';
@@ -81,7 +82,7 @@ export const DocumentLibrary: React.FC = () => {
               </div>
 
               <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2 truncate">
-                {doc.name}
+                {sanitizeDisplayString(doc.name)}
               </h3>
 
               <div className="flex flex-col gap-1.5 text-sm text-gray-500 dark:text-gray-400">
@@ -108,7 +109,7 @@ export const DocumentLibrary: React.FC = () => {
         onClose={handleCancelDelete}
         icon="🗑️"
         title="Delete Document?"
-        description={`Are you sure you want to delete "${documentToDelete?.name}"? This will also remove all Q&A history for this document.`}
+        description={`Are you sure you want to delete "${documentToDelete ? sanitizeDisplayString(documentToDelete.name) : ''}"? This will also remove all Q&A history for this document.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={handleConfirmDelete}

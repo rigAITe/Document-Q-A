@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
+import { sanitizeDisplayString } from '@/utils/sanitize';
 
 const toastStyles = {
   success: { border: 'border-green-500', bg: 'bg-green-500', icon: '✓' },
@@ -35,7 +36,7 @@ export const Toast: React.FC = () => {
               {style.icon}
             </div>
             <div className="flex-1 text-sm text-gray-900 dark:text-gray-100">
-              {toast.message}
+              {sanitizeDisplayString(toast.message)}
             </div>
             <button
               onClick={() => removeToast(toast.id)}

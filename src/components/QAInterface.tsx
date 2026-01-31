@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { PageContainer, PageHeader, EmptyState } from './ui';
+import { sanitizeDisplayString } from '@/utils/sanitize';
 import { DocumentSelector, ChatMessageList, QuestionInputForm } from './qa';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { MAX_QUESTION_LENGTH } from '@/config/constants';
@@ -131,7 +132,7 @@ export const QAInterface: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="min-w-0">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {selectedDocument?.name}
+              {sanitizeDisplayString(selectedDocument?.name ?? '')}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {isUsingRealApi ? 'AI mode: OpenAI' : 'AI mode: Disabled'}
