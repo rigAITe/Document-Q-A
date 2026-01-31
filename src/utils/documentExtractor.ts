@@ -15,6 +15,8 @@ const PDF_WORKER_SRC = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.mi
 
 const TEXT_EXTENSIONS = new Set(['.txt', '.md', '.csv']);
 const LEGACY_DOC_EXTENSION = '.doc';
+/** Formats that require OfficeParser; do not fall back to file.text() (produces garbage). */
+const BINARY_FORMAT_EXTENSIONS = new Set(['.pdf', '.docx', '.rtf', '.odt']);
 
 const getFileExtension = (fileName: string): string => {
   const dotIndex = fileName.lastIndexOf('.');
@@ -61,8 +63,15 @@ export async function extractTextFromFile(file: File): Promise<string> {
     });
     const text = ast?.toText?.() ?? '';
     return text.trim();
-  } catch {
-    // Fallback: best-effort text extraction for unsupported formats
+  } catch (err) {
+    // PDF/DOCX/RTF/ODT must use OfficeParser; file.text() would send raw binary garbage to the API
+    if (BINARY_FORMAT_EXTENSIONS.has(ext)) {
+      throw new Error(
+        'Could not extract text from this file. If you see this in production, ensure the document extraction script can load (check browser console for blocked scripts).'
+          + (err instanceof Error ? ` ${err.message}` : '')
+      );
+    }
+    // Fallback: best-effort for legacy .doc only
     if (ext === LEGACY_DOC_EXTENSION) {
       const decoded = new TextDecoder('latin1').decode(buffer);
       const cleaned = decoded
